@@ -1,4 +1,4 @@
-const CACHE = 'hand-light-v1';
+const CACHE = 'hand-light-v2';
 const ASSETS = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', e => {

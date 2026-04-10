@@ -108,7 +108,6 @@
 
 <div id="start-screen">
   <h1>Hand Light Motion</h1>
-  <p>手指控制光影流動效果 · 用嚟拍 Reel</p>
   <button id="start-btn">Start Camera</button>
 </div>
 
@@ -167,10 +166,9 @@
 <button id="toggle-btn" title="Show controls">⚙</button>
 <div id="status"><span class="dot off"></span>Waiting for camera...</div>
 
-<script type="module">
-// Load MediaPipe Hands
-import { Hands } from 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js';
-import { Camera } from 'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js';
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js"></script>
+<script>
 
 const video = document.getElementById('cam');
 const canvas = document.getElementById('fx');
@@ -457,7 +455,7 @@ function draw() {
 
 // --- Init MediaPipe ---
 async function init() {
-  const hands = new Hands({
+  const hands = new window.Hands({
     locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
   });
 
@@ -476,7 +474,7 @@ async function init() {
   video.srcObject = stream;
   await video.play();
 
-  const cam = new Camera(video, {
+  const cam = new window.Camera(video, {
     onFrame: async () => { await hands.send({ image: video }); },
     width: 1280,
     height: 720
@@ -492,9 +490,13 @@ async function init() {
 
 // Start button
 document.getElementById('start-btn').addEventListener('click', () => {
+  const btn = document.getElementById('start-btn');
+  btn.textContent = 'Loading...';
+  btn.style.opacity = '0.6';
   init().catch(err => {
-    alert('Camera access failed: ' + err.message);
-    console.error(err);
+    btn.textContent = 'Error - Tap to Retry';
+    btn.style.opacity = '1';
+    console.error('Init error:', err);
   });
 });
 
