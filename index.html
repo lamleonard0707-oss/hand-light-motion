@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Hand Light Motion</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #000;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  canvas#fx { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+  video#cam { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: 0; opacity: 0; }
+
+  #start-screen {
+    position: fixed; inset: 0; z-index: 200;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #0a0015 0%, #1a0030 50%, #000510 100%);
+    color: #fff;
+    transition: opacity 0.8s;
+  }
+  #start-screen.hidden { opacity: 0; pointer-events: none; }
+
+  #start-screen h1 {
+    font-size: 42px; font-weight: 700;
+    background: linear-gradient(90deg, #8b5cf6, #06b6d4, #ec4899);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 12px;
+  }
+  #start-screen p { opacity: 0.5; font-size: 15px; margin-bottom: 30px; }
+  #start-btn {
+    padding: 14px 40px; font-size: 16px; font-weight: 600;
+    border: none; border-radius: 30px; cursor: pointer;
+    background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+    color: #fff; letter-spacing: 0.5px;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  #start-btn:hover { transform: scale(1.05); box-shadow: 0 0 30px rgba(139,92,246,0.5); }
+
+  /* Controls */
+  #controls {
+    position: fixed; top: 20px; right: 20px;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 16px;
+    padding: 20px; z-index: 100; color: #fff; min-width: 260px;
+    transition: opacity 0.5s, transform 0.5s;
+    cursor: default;
+  }
+  #controls.hidden { opacity: 0; transform: translateX(300px); pointer-events: none; }
+  #controls h3 { font-size: 13px; margin-bottom: 14px; opacity: 0.6; letter-spacing: 1px; text-transform: uppercase; }
+
+  .ctrl-group { margin-bottom: 12px; }
+  .ctrl-group label { display: block; font-size: 12px; opacity: 0.6; margin-bottom: 4px; }
+  .ctrl-group input[type=range] { width: 100%; accent-color: #8b5cf6; }
+
+  .preset-btn {
+    display: inline-block; padding: 6px 12px; margin: 3px 3px 3px 0;
+    border: 1px solid rgba(255,255,255,0.2); border-radius: 20px;
+    background: rgba(255,255,255,0.05); color: #fff; font-size: 11px;
+    cursor: pointer; transition: all 0.3s;
+  }
+  .preset-btn:hover, .preset-btn.active { background: rgba(139,92,246,0.4); border-color: #8b5cf6; }
+
+  .toggle-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .toggle-row label { font-size: 12px; opacity: 0.6; margin: 0; }
+  .toggle-switch {
+    width: 36px; height: 20px; border-radius: 10px;
+    background: rgba(255,255,255,0.15); position: relative;
+    cursor: pointer; transition: background 0.3s;
+  }
+  .toggle-switch.on { background: #8b5cf6; }
+  .toggle-switch::after {
+    content: ''; position: absolute; top: 2px; left: 2px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; transition: left 0.3s;
+  }
+  .toggle-switch.on::after { left: 18px; }
+
+  #toggle-btn {
+    position: fixed; top: 20px; right: 20px; z-index: 101;
+    background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2);
+    color: #fff; width: 40px; height: 40px; border-radius: 50%;
+    cursor: pointer; font-size: 18px; display: none;
+    align-items: center; justify-content: center;
+  }
+
+  #status {
+    position: fixed; bottom: 20px; left: 20px; z-index: 100;
+    color: rgba(255,255,255,0.3); font-size: 12px;
+  }
+  #status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  #status .dot.on { background: #22c55e; }
+  #status .dot.off { background: #ef4444; }
+</style>
+</head>
+<body>
+
+<div id="start-screen">
+  <h1>Hand Light Motion</h1>
+  <p>手指控制光影流動效果 · 用嚟拍 Reel</p>
+  <button id="start-btn">Start Camera</button>
+</div>
+
+<video id="cam" playsinline></video>
+<canvas id="fx"></canvas>
+
+<div id="controls" class="hidden">
+  <h3>Light Controls</h3>
+
+  <div class="ctrl-group">
+    <label>Presets</label>
+    <span class="preset-btn active" data-preset="aurora">Aurora</span>
+    <span class="preset-btn" data-preset="neon">Neon</span>
+    <span class="preset-btn" data-preset="ocean">Ocean</span>
+    <span class="preset-btn" data-preset="fire">Fire</span>
+    <span class="preset-btn" data-preset="cyberpunk">Cyber</span>
+    <span class="preset-btn" data-preset="sunset">Sunset</span>
+    <span class="preset-btn" data-preset="magic">Magic</span>
+  </div>
+
+  <div class="toggle-row">
+    <div class="toggle-switch on" id="toggle-cam"></div>
+    <label>Show Camera Feed</label>
+  </div>
+
+  <div class="toggle-row">
+    <div class="toggle-switch on" id="toggle-trail"></div>
+    <label>Light Trail</label>
+  </div>
+
+  <div class="ctrl-group">
+    <label>Light Size: <span id="size-val">100%</span></label>
+    <input type="range" id="size" min="30" max="200" step="5" value="100">
+  </div>
+
+  <div class="ctrl-group">
+    <label>Glow Intensity: <span id="intensity-val">80%</span></label>
+    <input type="range" id="intensity" min="20" max="100" step="5" value="80">
+  </div>
+
+  <div class="ctrl-group">
+    <label>Trail Length: <span id="trail-val">70%</span></label>
+    <input type="range" id="trail" min="10" max="95" step="5" value="70">
+  </div>
+
+  <div class="ctrl-group">
+    <label>Speed: <span id="speed-val">1.0x</span></label>
+    <input type="range" id="speed" min="0.3" max="3" step="0.1" value="1">
+  </div>
+
+  <div style="margin-top: 10px; font-size: 11px; opacity: 0.35;">
+    <b>H</b> hide controls · <b>F</b> fullscreen · <b>Space</b> pause · <b>C</b> toggle camera · <b>1-7</b> presets
+  </div>
+</div>
+
+<button id="toggle-btn" title="Show controls">⚙</button>
+<div id="status"><span class="dot off"></span>Waiting for camera...</div>
+
+<script type="module">
+// Load MediaPipe Hands
+import { Hands } from 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js';
+import { Camera } from 'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js';
+
+const video = document.getElementById('cam');
+const canvas = document.getElementById('fx');
+const ctx = canvas.getContext('2d');
+const statusEl = document.getElementById('status');
+
+let W, H;
+let time = 0;
+let paused = false;
+let showCam = true;
+let showTrail = true;
+let lightSize = 1.0;
+let glowIntensity = 0.8;
+let trailLength = 0.7;
+let animSpeed = 1.0;
+let currentPreset = 'aurora';
+let handsDetected = false;
+
+// Finger tracking data — store all 21 landmarks per hand, up to 2 hands
+let handLandmarks = [];
+// Store velocity for reactive effects
+let prevFingerTips = [];
+let fingerVelocities = [];
+
+const presets = {
+  aurora: {
+    colors: [[72,209,204],[138,43,226],[0,191,255],[50,205,50],[255,105,180]],
+    bg: [5,5,15]
+  },
+  neon: {
+    colors: [[255,0,128],[0,255,255],[255,0,255],[128,0,255],[0,255,128]],
+    bg: [2,2,8]
+  },
+  ocean: {
+    colors: [[0,105,148],[0,168,204],[72,209,204],[0,77,122],[100,200,220]],
+    bg: [2,8,18]
+  },
+  fire: {
+    colors: [[255,68,0],[255,140,0],[255,200,0],[200,30,0],[255,100,50]],
+    bg: [15,3,0]
+  },
+  cyberpunk: {
+    colors: [[255,0,255],[0,255,255],[255,255,0],[255,0,100],[0,200,255]],
+    bg: [8,0,12]
+  },
+  sunset: {
+    colors: [[255,94,77],[255,154,0],[255,206,84],[200,50,80],[180,80,150]],
+    bg: [15,5,10]
+  },
+  magic: {
+    colors: [[180,130,255],[255,200,100],[100,220,255],[255,100,200],[150,255,150]],
+    bg: [5,3,10]
+  }
+};
+
+function resize() {
+  W = canvas.width = window.innerWidth * devicePixelRatio;
+  H = canvas.height = window.innerHeight * devicePixelRatio;
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+}
+window.addEventListener('resize', resize);
+resize();
+
+// Finger tip indices in MediaPipe hand landmarks
+const tipIndices = [4, 8, 12, 16, 20]; // thumb, index, middle, ring, pinky
+const knuckleIndices = [2, 5, 9, 13, 17]; // corresponding knuckles
+
+function onResults(results) {
+  handLandmarks = results.multiHandLandmarks || [];
+  handsDetected = handLandmarks.length > 0;
+
+  // Calculate finger tip positions and velocities
+  const currentTips = [];
+  for (const hand of handLandmarks) {
+    for (const ti of tipIndices) {
+      currentTips.push({ x: hand[ti].x, y: hand[ti].y, z: hand[ti].z });
+    }
+  }
+
+  // Velocity calculation
+  fingerVelocities = [];
+  for (let i = 0; i < currentTips.length; i++) {
+    if (i < prevFingerTips.length) {
+      const dx = currentTips[i].x - prevFingerTips[i].x;
+      const dy = currentTips[i].y - prevFingerTips[i].y;
+      fingerVelocities.push(Math.sqrt(dx * dx + dy * dy));
+    } else {
+      fingerVelocities.push(0);
+    }
+  }
+  prevFingerTips = currentTips;
+
+  // Update status
+  const dot = statusEl.querySelector('.dot');
+  if (handsDetected) {
+    dot.className = 'dot on';
+    statusEl.innerHTML = `<span class="dot on"></span>Tracking ${handLandmarks.length} hand(s) · ${currentTips.length} fingers`;
+  } else {
+    dot.className = 'dot off';
+    statusEl.innerHTML = `<span class="dot off"></span>No hands detected — show your hands`;
+  }
+}
+
+// -- Drawing --
+// Trail particles
+const particles = [];
+const MAX_PARTICLES = 300;
+
+function spawnParticles(x, y, vel, color) {
+  const count = Math.floor(1 + vel * 20);
+  for (let i = 0; i < count && particles.length < MAX_PARTICLES; i++) {
+    particles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * vel * W * 0.3,
+      vy: (Math.random() - 0.5) * vel * H * 0.3,
+      life: 1,
+      decay: 0.01 + Math.random() * 0.03,
+      color,
+      size: (5 + Math.random() * 15) * lightSize * devicePixelRatio
+    });
+  }
+}
+
+function drawParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx * 0.016;
+    p.y += p.vy * 0.016;
+    p.vx *= 0.96;
+    p.vy *= 0.96;
+    p.life -= p.decay;
+
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+
+    const alpha = p.life * glowIntensity * 0.3;
+    const r = p.size * p.life;
+    const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+    grad.addColorStop(0, `rgba(${p.color[0]},${p.color[1]},${p.color[2]},${alpha})`);
+    grad.addColorStop(1, `rgba(${p.color[0]},${p.color[1]},${p.color[2]},0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function draw() {
+  if (paused) { requestAnimationFrame(draw); return; }
+
+  time += 0.016 * animSpeed;
+  const preset = presets[currentPreset];
+  const bg = preset.bg;
+
+  // Draw camera feed if enabled
+  if (showCam && video.readyState >= 2) {
+    ctx.save();
+    ctx.scale(-devicePixelRatio, devicePixelRatio); // mirror
+    ctx.drawImage(video, -window.innerWidth, 0, window.innerWidth, window.innerHeight);
+    ctx.restore();
+    // Darken overlay for better light visibility
+    ctx.fillStyle = `rgba(${bg[0]},${bg[1]},${bg[2]},0.55)`;
+    ctx.fillRect(0, 0, W, H);
+  } else {
+    // Fade trail
+    const fadeAlpha = 0.05 + (1 - trailLength) * 0.15;
+    ctx.fillStyle = `rgba(${bg[0]},${bg[1]},${bg[2]},${fadeAlpha})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // --- Ambient background glow (always present) ---
+  for (let i = 0; i < 3; i++) {
+    const c = preset.colors[i % preset.colors.length];
+    const angle = time * (0.2 + i * 0.1) + i * 2;
+    const bx = W * 0.5 + Math.sin(angle) * W * 0.3;
+    const by = H * 0.5 + Math.cos(angle * 0.7) * H * 0.3;
+    const br = Math.min(W, H) * 0.2;
+    const ba = glowIntensity * 0.04;
+
+    const bg2 = ctx.createRadialGradient(bx, by, 0, bx, by, br);
+    bg2.addColorStop(0, `rgba(${c[0]},${c[1]},${c[2]},${ba})`);
+    bg2.addColorStop(1, `rgba(${c[0]},${c[1]},${c[2]},0)`);
+    ctx.fillStyle = bg2;
+    ctx.beginPath();
+    ctx.arc(bx, by, br, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // --- Hand-driven light effects ---
+  if (handsDetected) {
+    let fingerIdx = 0;
+
+    for (const hand of handLandmarks) {
+      // Draw light on each fingertip
+      for (let fi = 0; fi < tipIndices.length; fi++) {
+        const tip = hand[tipIndices[fi]];
+        const knuckle = hand[knuckleIndices[fi]];
+
+        // Mirror X for selfie view, scale to canvas
+        const tx = (1 - tip.x) * W;
+        const ty = tip.y * H;
+        const kx = (1 - knuckle.x) * W;
+        const ky = knuckle.y * H;
+
+        const vel = fingerIdx < fingerVelocities.length ? fingerVelocities[fingerIdx] : 0;
+        const colorIdx = fi % preset.colors.length;
+        const color = preset.colors[colorIdx];
+
+        // Finger extension = tip distance from knuckle (more extended = bigger glow)
+        const ext = Math.sqrt((tip.x - knuckle.x) ** 2 + (tip.y - knuckle.y) ** 2);
+        const extFactor = Math.min(ext * 8, 2);
+
+        // Main glow at fingertip
+        const baseR = 40 * lightSize * devicePixelRatio * (1 + vel * 15) * extFactor;
+        const alpha = glowIntensity * (0.15 + vel * 2) * extFactor;
+
+        // Outer glow
+        const g1 = ctx.createRadialGradient(tx, ty, 0, tx, ty, baseR * 2);
+        g1.addColorStop(0, `rgba(${color[0]},${color[1]},${color[2]},${Math.min(alpha, 0.6)})`);
+        g1.addColorStop(0.3, `rgba(${color[0]},${color[1]},${color[2]},${alpha * 0.4})`);
+        g1.addColorStop(1, `rgba(${color[0]},${color[1]},${color[2]},0)`);
+        ctx.fillStyle = g1;
+        ctx.beginPath();
+        ctx.arc(tx, ty, baseR * 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Inner bright core
+        const coreR = baseR * 0.3;
+        const g2 = ctx.createRadialGradient(tx, ty, 0, tx, ty, coreR);
+        g2.addColorStop(0, `rgba(255,255,255,${Math.min(alpha * 1.5, 0.7)})`);
+        g2.addColorStop(0.5, `rgba(${color[0]},${color[1]},${color[2]},${alpha * 0.8})`);
+        g2.addColorStop(1, `rgba(${color[0]},${color[1]},${color[2]},0)`);
+        ctx.fillStyle = g2;
+        ctx.beginPath();
+        ctx.arc(tx, ty, coreR, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Light beam from knuckle to tip
+        if (extFactor > 0.5) {
+          ctx.save();
+          ctx.globalAlpha = alpha * 0.3;
+          ctx.strokeStyle = `rgba(${color[0]},${color[1]},${color[2]},0.5)`;
+          ctx.lineWidth = 2 * devicePixelRatio * lightSize;
+          ctx.shadowColor = `rgb(${color[0]},${color[1]},${color[2]})`;
+          ctx.shadowBlur = 15 * lightSize * devicePixelRatio;
+          ctx.beginPath();
+          ctx.moveTo(kx, ky);
+          ctx.lineTo(tx, ty);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Spawn trail particles
+        if (showTrail && vel > 0.005) {
+          spawnParticles(tx, ty, vel, color);
+        }
+
+        fingerIdx++;
+      }
+
+      // Palm center glow
+      const palm = hand[0]; // wrist
+      const middle = hand[9]; // middle finger base
+      const px = (1 - (palm.x + middle.x) / 2) * W;
+      const py = ((palm.y + middle.y) / 2) * H;
+      const palmColor = preset.colors[2 % preset.colors.length];
+      const palmR = 60 * lightSize * devicePixelRatio;
+
+      const pg = ctx.createRadialGradient(px, py, 0, px, py, palmR);
+      pg.addColorStop(0, `rgba(${palmColor[0]},${palmColor[1]},${palmColor[2]},${glowIntensity * 0.08})`);
+      pg.addColorStop(1, `rgba(${palmColor[0]},${palmColor[1]},${palmColor[2]},0)`);
+      ctx.fillStyle = pg;
+      ctx.beginPath();
+      ctx.arc(px, py, palmR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Draw trail particles
+  if (showTrail) drawParticles();
+
+  requestAnimationFrame(draw);
+}
+
+// --- Init MediaPipe ---
+async function init() {
+  const hands = new Hands({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
+  });
+
+  hands.setOptions({
+    maxNumHands: 2,
+    modelComplexity: 1,
+    minDetectionConfidence: 0.6,
+    minTrackingConfidence: 0.5
+  });
+
+  hands.onResults(onResults);
+
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { width: 1280, height: 720, facingMode: 'user' }
+  });
+  video.srcObject = stream;
+  await video.play();
+
+  const cam = new Camera(video, {
+    onFrame: async () => { await hands.send({ image: video }); },
+    width: 1280,
+    height: 720
+  });
+  cam.start();
+
+  document.getElementById('start-screen').classList.add('hidden');
+  document.getElementById('controls').classList.remove('hidden');
+  draw();
+
+  statusEl.innerHTML = `<span class="dot on"></span>Camera active — show your hands`;
+}
+
+// Start button
+document.getElementById('start-btn').addEventListener('click', () => {
+  init().catch(err => {
+    alert('Camera access failed: ' + err.message);
+    console.error(err);
+  });
+});
+
+// --- Controls ---
+document.getElementById('size').addEventListener('input', e => {
+  lightSize = parseInt(e.target.value) / 100;
+  document.getElementById('size-val').textContent = parseInt(e.target.value) + '%';
+});
+document.getElementById('intensity').addEventListener('input', e => {
+  glowIntensity = parseInt(e.target.value) / 100;
+  document.getElementById('intensity-val').textContent = parseInt(e.target.value) + '%';
+});
+document.getElementById('trail').addEventListener('input', e => {
+  trailLength = parseInt(e.target.value) / 100;
+  document.getElementById('trail-val').textContent = parseInt(e.target.value) + '%';
+});
+document.getElementById('speed').addEventListener('input', e => {
+  animSpeed = parseFloat(e.target.value);
+  document.getElementById('speed-val').textContent = animSpeed.toFixed(1) + 'x';
+});
+
+// Preset buttons
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPreset = btn.dataset.preset;
+  });
+});
+
+// Toggle switches
+document.getElementById('toggle-cam').addEventListener('click', function() {
+  showCam = !showCam;
+  this.classList.toggle('on', showCam);
+  video.style.opacity = showCam ? '0' : '0'; // video always hidden, drawn on canvas
+});
+document.getElementById('toggle-trail').addEventListener('click', function() {
+  showTrail = !showTrail;
+  this.classList.toggle('on', showTrail);
+});
+
+// Keyboard shortcuts
+const controls = document.getElementById('controls');
+const toggleBtn = document.getElementById('toggle-btn');
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'h' || e.key === 'H') {
+    controls.classList.toggle('hidden');
+    toggleBtn.style.display = controls.classList.contains('hidden') ? 'flex' : 'none';
+  }
+  if (e.key === 'f' || e.key === 'F') {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
+  }
+  if (e.key === ' ') { e.preventDefault(); paused = !paused; }
+  if (e.key === 'c' || e.key === 'C') {
+    showCam = !showCam;
+    document.getElementById('toggle-cam').classList.toggle('on', showCam);
+  }
+  const presetNames = Object.keys(presets);
+  const idx = parseInt(e.key) - 1;
+  if (idx >= 0 && idx < presetNames.length) {
+    currentPreset = presetNames[idx];
+    document.querySelectorAll('.preset-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.preset === currentPreset);
+    });
+  }
+});
+
+toggleBtn.addEventListener('click', () => {
+  controls.classList.remove('hidden');
+  toggleBtn.style.display = 'none';
+});
+
+document.addEventListener('wheel', e => e.preventDefault(), { passive: false });
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js');
+}
+</script>
+</body>
+</html>
