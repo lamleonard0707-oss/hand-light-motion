@@ -1,4 +1,4 @@
-const CACHE = 'hand-light-v4';
+const CACHE = 'hand-light-v5';
 
 self.addEventListener('install', e => {
   self.skipWaiting();

@@ -11,9 +11,9 @@
 <title>Hand Light Motion</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #000; overflow: hidden; width: 100vw; height: 100vh; font-family: -apple-system, sans-serif; }
-  canvas#fx { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
-  video#cam { display: none; }
+  body { background: #000; overflow: hidden; width: 100vw; height: 100vh; }
+  canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; }
+  video { display: none; }
 
   #start-screen {
     position: fixed; inset: 0; z-index: 200;
@@ -22,47 +22,16 @@
   }
   #start-screen.hidden { opacity: 0; pointer-events: none; }
   #start-screen h1 {
-    font-size: 38px; font-weight: 700;
-    background: linear-gradient(90deg, #4af, #a6f, #4ff);
+    font-size: 36px; font-weight: 700;
+    background: linear-gradient(90deg, #f0f, #0ff, #ff0, #0f0, #f0f);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     margin-bottom: 30px;
   }
   #start-btn {
     padding: 14px 40px; font-size: 16px; font-weight: 600;
     border: none; border-radius: 30px; cursor: pointer;
-    background: linear-gradient(135deg, #4af, #a6f);
-    color: #fff; transition: transform 0.2s;
-  }
-  #start-btn:hover { transform: scale(1.05); }
-
-  #controls {
-    position: fixed; top: 15px; right: 15px;
-    background: rgba(0,0,0,0.75); backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.1); border-radius: 14px;
-    padding: 16px; z-index: 100; color: #fff; min-width: 240px;
-    transition: opacity 0.4s, transform 0.4s;
-  }
-  #controls.hidden { opacity: 0; transform: translateX(280px); pointer-events: none; }
-  #controls h3 { font-size: 12px; margin-bottom: 12px; opacity: 0.5; letter-spacing: 1px; text-transform: uppercase; }
-  .ctrl-group { margin-bottom: 10px; }
-  .ctrl-group label { display: block; font-size: 11px; opacity: 0.5; margin-bottom: 3px; }
-  .ctrl-group input[type=range] { width: 100%; accent-color: #4af; }
-  .preset-btn {
-    display: inline-block; padding: 5px 11px; margin: 3px 2px;
-    border: 1px solid rgba(255,255,255,0.15); border-radius: 16px;
-    background: rgba(255,255,255,0.04); color: #fff; font-size: 11px;
-    cursor: pointer; transition: all 0.3s;
-  }
-  .preset-btn:hover, .preset-btn.active { background: rgba(80,160,255,0.3); border-color: #4af; }
-  #toggle-btn {
-    position: fixed; top: 15px; right: 15px; z-index: 101;
-    background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2);
-    color: #fff; width: 36px; height: 36px; border-radius: 50%;
-    cursor: pointer; font-size: 16px; display: none; align-items: center; justify-content: center;
-  }
-  #status {
-    position: fixed; bottom: 15px; left: 15px; z-index: 100;
-    color: rgba(255,255,255,0.25); font-size: 11px;
+    background: linear-gradient(135deg, #f0f, #0ff);
+    color: #fff;
   }
 </style>
 </head>
@@ -76,38 +45,6 @@
 <video id="cam" playsinline></video>
 <canvas id="fx"></canvas>
 
-<div id="controls" class="hidden">
-  <h3>Controls</h3>
-  <div class="ctrl-group">
-    <label>Theme</label>
-    <span class="preset-btn active" data-preset="cosmic">Cosmic Blue</span>
-    <span class="preset-btn" data-preset="nebula">Nebula</span>
-    <span class="preset-btn" data-preset="matrix">Matrix</span>
-    <span class="preset-btn" data-preset="fire">Fire</span>
-    <span class="preset-btn" data-preset="aurora">Aurora</span>
-    <span class="preset-btn" data-preset="cyber">Cyberpunk</span>
-  </div>
-  <div class="ctrl-group">
-    <label>Brightness: <span id="bright-val">100%</span></label>
-    <input type="range" id="bright" min="50" max="200" step="10" value="100">
-  </div>
-  <div class="ctrl-group">
-    <label>Particle Density: <span id="density-val">100%</span></label>
-    <input type="range" id="density" min="30" max="150" step="10" value="100">
-  </div>
-  <div class="ctrl-group">
-    <label>Wave Height: <span id="wave-val">100%</span></label>
-    <input type="range" id="wave" min="20" max="200" step="10" value="100">
-  </div>
-  <div class="ctrl-group">
-    <label>Speed: <span id="speed-val">1.0x</span></label>
-    <input type="range" id="speed" min="0.3" max="3" step="0.1" value="1">
-  </div>
-  <div style="margin-top:8px;font-size:10px;opacity:0.3;"><b>H</b> hide · <b>F</b> fullscreen · <b>1-6</b> presets</div>
-</div>
-<button id="toggle-btn">⚙</button>
-<div id="status">Waiting...</div>
-
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js"></script>
 <script>
@@ -115,93 +52,35 @@ const canvas = document.getElementById('fx');
 const ctx = canvas.getContext('2d');
 const video = document.getElementById('cam');
 
-let W, H, time = 0, paused = false;
-let brightness = 1.0, densityMul = 1.0, waveMul = 1.0, speedMul = 1.0;
-let currentPreset = 'cosmic';
+let W, H, time = 0;
 let handLandmarks = [];
-let fingerTips = []; // {x, y, vx, vy, speed}
+let prevTips = {};
 
-const presets = {
-  cosmic: {
-    primary: [60, 140, 255],
-    secondary: [120, 80, 255],
-    accent: [0, 220, 255],
-    stars: [180, 200, 255],
-    orb: [40, 120, 255],
-    bg: [2, 3, 12]
-  },
-  nebula: {
-    primary: [200, 50, 255],
-    secondary: [80, 50, 255],
-    accent: [255, 100, 200],
-    stars: [220, 180, 255],
-    orb: [180, 40, 255],
-    bg: [8, 2, 15]
-  },
-  matrix: {
-    primary: [0, 255, 80],
-    secondary: [0, 180, 60],
-    accent: [100, 255, 150],
-    stars: [0, 200, 80],
-    orb: [0, 255, 65],
-    bg: [0, 5, 2]
-  },
-  fire: {
-    primary: [255, 100, 0],
-    secondary: [255, 50, 0],
-    accent: [255, 200, 50],
-    stars: [255, 150, 50],
-    orb: [255, 80, 0],
-    bg: [12, 3, 0]
-  },
-  aurora: {
-    primary: [0, 220, 180],
-    secondary: [80, 200, 255],
-    accent: [100, 255, 150],
-    stars: [150, 255, 220],
-    orb: [0, 200, 160],
-    bg: [2, 8, 8]
-  },
-  cyber: {
-    primary: [255, 0, 200],
-    secondary: [0, 255, 255],
-    accent: [255, 255, 0],
-    stars: [255, 100, 255],
-    orb: [255, 0, 180],
-    bg: [8, 0, 10]
-  }
-};
+// Each finger gets a distinct bright color
+const fingerColors = [
+  [255, 50, 200],   // thumb — hot pink
+  [0, 200, 255],    // index — cyan
+  [180, 50, 255],   // middle — purple
+  [255, 180, 0],    // ring — orange/gold
+  [0, 255, 120],    // pinky — green
+];
 
-// --- Particle Grid ---
-const COLS = 60;
-const ROWS = 40;
-let grid = [];
+// Extra colors for second hand
+const fingerColors2 = [
+  [255, 0, 80],
+  [0, 255, 255],
+  [100, 0, 255],
+  [255, 255, 0],
+  [0, 255, 200],
+];
 
-function initGrid() {
-  grid = [];
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      grid.push({
-        baseX: (c / (COLS - 1)),
-        baseY: (r / (ROWS - 1)),
-        x: 0, y: 0, z: 0,
-        brightness: 0
-      });
-    }
-  }
-}
-initGrid();
+const tipIdx = [4, 8, 12, 16, 20];
+const mcpIdx = [2, 5, 9, 13, 17]; // knuckle bases
+const wristIdx = 0;
 
-// --- Stars ---
-const stars = [];
-for (let i = 0; i < 200; i++) {
-  stars.push({
-    x: Math.random(), y: Math.random(),
-    size: 0.5 + Math.random() * 1.5,
-    twinkle: Math.random() * Math.PI * 2,
-    speed: 0.5 + Math.random() * 2
-  });
-}
+// Trail history per finger
+const trails = {};
+const TRAIL_LEN = 25;
 
 function resize() {
   W = canvas.width = window.innerWidth * devicePixelRatio;
@@ -212,217 +91,208 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// Smooth noise
-function noise(x, y, t) {
-  return Math.sin(x * 1.5 + t) * Math.cos(y * 1.2 + t * 0.7) +
-         Math.sin(x * 0.8 + y * 1.1 + t * 0.5) * 0.5;
-}
-
-// --- Finger tracking ---
-const tipIdx = [4, 8, 12, 16, 20];
-let prevTips = {};
-
 function onResults(results) {
   handLandmarks = results.multiHandLandmarks || [];
-  fingerTips = [];
-
-  for (let hi = 0; hi < handLandmarks.length; hi++) {
-    const hand = handLandmarks[hi];
-    for (const ti of tipIdx) {
-      const lm = hand[ti];
-      const key = `${hi}_${ti}`;
-      const px = prevTips[key] || { x: lm.x, y: lm.y };
-      const vx = lm.x - px.x;
-      const vy = lm.y - px.y;
-      const spd = Math.sqrt(vx * vx + vy * vy);
-      fingerTips.push({
-        x: 1 - lm.x, // mirror
-        y: lm.y,
-        vx, vy, speed: spd
-      });
-      prevTips[key] = { x: lm.x, y: lm.y };
-    }
-  }
-
-  const dot = handLandmarks.length > 0 ? 'on' : 'off';
-  document.getElementById('status').innerHTML =
-    `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${dot === 'on' ? '#0f0' : '#f00'};margin-right:5px;vertical-align:middle;"></span>` +
-    (handLandmarks.length > 0 ? `Tracking ${handLandmarks.length} hand(s)` : 'Show your hands');
 }
 
-// --- Drawing ---
 function draw() {
-  if (paused) { requestAnimationFrame(draw); return; }
-  time += 0.016 * speedMul;
-  const p = presets[currentPreset];
-  const br = brightness;
+  time += 0.016;
 
-  // Clear
-  ctx.fillStyle = `rgb(${p.bg[0]},${p.bg[1]},${p.bg[2]})`;
+  // --- Draw camera feed (visible!) ---
+  ctx.save();
+  ctx.scale(-1 * devicePixelRatio, devicePixelRatio);
+  ctx.drawImage(video, -window.innerWidth, 0, window.innerWidth, window.innerHeight);
+  ctx.restore();
+
+  // Slight dark overlay so light effects pop
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
   ctx.fillRect(0, 0, W, H);
 
-  // --- Stars ---
-  for (const s of stars) {
-    const alpha = (0.3 + 0.7 * Math.abs(Math.sin(time * s.speed + s.twinkle))) * br * 0.6;
-    ctx.fillStyle = `rgba(${p.stars[0]},${p.stars[1]},${p.stars[2]},${alpha})`;
-    ctx.beginPath();
-    ctx.arc(s.x * W, s.y * H, s.size * devicePixelRatio, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  // --- Process each hand ---
+  for (let hi = 0; hi < handLandmarks.length; hi++) {
+    const hand = handLandmarks[hi];
+    const colors = hi === 0 ? fingerColors : fingerColors2;
+    const wrist = hand[wristIdx];
+    const wx = (1 - wrist.x) * W;
+    const wy = wrist.y * H;
 
-  // --- Central Orb ---
-  const orbX = W * 0.5;
-  const orbY = H * 0.45;
-  const orbPulse = 1 + Math.sin(time * 1.5) * 0.15;
-  const orbR = Math.min(W, H) * 0.08 * orbPulse;
+    // --- Draw light beam for each finger ---
+    for (let fi = 0; fi < tipIdx.length; fi++) {
+      const tip = hand[tipIdx[fi]];
+      const mcp = hand[mcpIdx[fi]];
+      const color = colors[fi];
+      const key = `${hi}_${fi}`;
 
-  // Outer glow
-  for (let i = 4; i >= 0; i--) {
-    const r = orbR * (1 + i * 0.8);
-    const a = br * 0.06 / (i + 1);
-    const g = ctx.createRadialGradient(orbX, orbY, 0, orbX, orbY, r);
-    g.addColorStop(0, `rgba(${p.orb[0]},${p.orb[1]},${p.orb[2]},${a})`);
-    g.addColorStop(1, `rgba(${p.orb[0]},${p.orb[1]},${p.orb[2]},0)`);
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(orbX, orbY, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
+      const tx = (1 - tip.x) * W;
+      const ty = tip.y * H;
+      const mx = (1 - mcp.x) * W;
+      const my = mcp.y * H;
 
-  // Core
-  const coreG = ctx.createRadialGradient(orbX, orbY, 0, orbX, orbY, orbR);
-  coreG.addColorStop(0, `rgba(255,255,255,${0.9 * br})`);
-  coreG.addColorStop(0.2, `rgba(${p.primary[0]},${p.primary[1]},${p.primary[2]},${0.8 * br})`);
-  coreG.addColorStop(0.6, `rgba(${p.orb[0]},${p.orb[1]},${p.orb[2]},${0.4 * br})`);
-  coreG.addColorStop(1, `rgba(${p.orb[0]},${p.orb[1]},${p.orb[2]},0)`);
-  ctx.fillStyle = coreG;
-  ctx.beginPath();
-  ctx.arc(orbX, orbY, orbR, 0, Math.PI * 2);
-  ctx.fill();
+      // Velocity
+      const prev = prevTips[key] || { x: tx, y: ty };
+      const vx = tx - prev.x;
+      const vy = ty - prev.y;
+      const speed = Math.sqrt(vx * vx + vy * vy) / W;
+      prevTips[key] = { x: tx, y: ty };
 
-  // Orb ring
-  ctx.strokeStyle = `rgba(${p.accent[0]},${p.accent[1]},${p.accent[2]},${0.3 * br})`;
-  ctx.lineWidth = 1.5 * devicePixelRatio;
-  ctx.beginPath();
-  ctx.ellipse(orbX, orbY, orbR * 1.5, orbR * 0.5, time * 0.3, 0, Math.PI * 2);
-  ctx.stroke();
+      // Trail
+      if (!trails[key]) trails[key] = [];
+      trails[key].unshift({ x: tx, y: ty, t: time });
+      if (trails[key].length > TRAIL_LEN) trails[key].pop();
 
-  // --- 3D Particle Wave Grid ---
-  const effectiveCols = Math.floor(COLS * densityMul);
-  const effectiveRows = Math.floor(ROWS * densityMul);
-  const dotSize = (1.5 + Math.sin(time) * 0.3) * devicePixelRatio;
+      // --- Light beam from knuckle to fingertip (extending beyond) ---
+      const dx = tx - mx;
+      const dy = ty - my;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      const extendLen = len * 1.8; // beam extends past fingertip
+      const ex = tx + (dx / len) * extendLen * 0.5;
+      const ey = ty + (dy / len) * extendLen * 0.5;
 
-  for (let r = 0; r < effectiveRows; r++) {
-    for (let c = 0; c < effectiveCols; c++) {
-      const bx = c / (effectiveCols - 1);
-      const by = r / (effectiveRows - 1);
-
-      // 3D wave displacement
-      const waveX = bx * 8 - 4;
-      const waveY = by * 6 - 3;
-      const waveZ = noise(waveX, waveY, time * 0.8) * 0.08 * waveMul;
-
-      // Perspective projection
-      const perspective = 1.2 / (1.2 + waveZ);
-      const screenX = W * (0.1 + bx * 0.8) * perspective + (1 - perspective) * W * 0.5;
-      const screenY = H * (0.15 + by * 0.7) * perspective + (1 - perspective) * H * 0.45;
-
-      // Distance from orb center
-      const dx = screenX - orbX;
-      const dy = screenY - orbY;
-      const distOrb = Math.sqrt(dx * dx + dy * dy) / Math.min(W, H);
-
-      // Base brightness — brighter near orb
-      let dotBright = Math.max(0, 1 - distOrb * 2) * 0.5 + 0.15;
-      dotBright += waveZ * 3;
-
-      // --- Finger interaction ---
-      for (const ft of fingerTips) {
-        const fdx = bx - ft.x;
-        const fdy = by - ft.y;
-        const fd = Math.sqrt(fdx * fdx + fdy * fdy);
-        const influence = Math.max(0, 1 - fd * 5); // radius of influence
-        dotBright += influence * (0.8 + ft.speed * 15);
-      }
-
-      dotBright = Math.min(dotBright, 1.5) * br;
-
-      if (dotBright < 0.05) continue;
-
-      // Color: blend primary → accent based on height
-      const t2 = Math.max(0, Math.min(1, waveZ * 5 + 0.5));
-      const cr = p.primary[0] + (p.accent[0] - p.primary[0]) * t2;
-      const cg = p.primary[1] + (p.accent[1] - p.primary[1]) * t2;
-      const cb = p.primary[2] + (p.accent[2] - p.primary[2]) * t2;
-
-      const sz = dotSize * perspective * (0.5 + dotBright);
-      const alpha = Math.min(dotBright, 1);
-
-      // Glow
-      if (dotBright > 0.5) {
-        const glowR = sz * 4;
-        const gg = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, glowR);
-        gg.addColorStop(0, `rgba(${cr|0},${cg|0},${cb|0},${alpha * 0.15})`);
-        gg.addColorStop(1, `rgba(${cr|0},${cg|0},${cb|0},0)`);
-        ctx.fillStyle = gg;
-        ctx.beginPath();
-        ctx.arc(screenX, screenY, glowR, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Dot
-      ctx.fillStyle = `rgba(${cr|0},${cg|0},${cb|0},${alpha})`;
+      // Beam glow (wide)
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.lineWidth = (12 + speed * 800) * devicePixelRatio;
+      ctx.lineCap = 'round';
+      const beamGrad = ctx.createLinearGradient(mx, my, ex, ey);
+      beamGrad.addColorStop(0, `rgba(${color[0]},${color[1]},${color[2]},0)`);
+      beamGrad.addColorStop(0.3, `rgba(${color[0]},${color[1]},${color[2]},0.15)`);
+      beamGrad.addColorStop(0.6, `rgba(${color[0]},${color[1]},${color[2]},0.3)`);
+      beamGrad.addColorStop(1, `rgba(${color[0]},${color[1]},${color[2]},0)`);
+      ctx.strokeStyle = beamGrad;
       ctx.beginPath();
-      ctx.arc(screenX, screenY, sz, 0, Math.PI * 2);
+      ctx.moveTo(mx, my);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+
+      // Beam core (thin, bright)
+      ctx.lineWidth = (3 + speed * 200) * devicePixelRatio;
+      const coreGrad = ctx.createLinearGradient(mx, my, ex, ey);
+      coreGrad.addColorStop(0, `rgba(${color[0]},${color[1]},${color[2]},0)`);
+      coreGrad.addColorStop(0.4, `rgba(255,255,255,0.5)`);
+      coreGrad.addColorStop(0.7, `rgba(${color[0]},${color[1]},${color[2]},0.6)`);
+      coreGrad.addColorStop(1, `rgba(${color[0]},${color[1]},${color[2]},0)`);
+      ctx.strokeStyle = coreGrad;
+      ctx.beginPath();
+      ctx.moveTo(mx, my);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+      ctx.restore();
+
+      // --- Fingertip glow orb ---
+      const glowSize = (50 + speed * 1500) * devicePixelRatio;
+
+      // Outer glow
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const g1 = ctx.createRadialGradient(tx, ty, 0, tx, ty, glowSize);
+      g1.addColorStop(0, `rgba(${color[0]},${color[1]},${color[2]},0.6)`);
+      g1.addColorStop(0.3, `rgba(${color[0]},${color[1]},${color[2]},0.25)`);
+      g1.addColorStop(0.7, `rgba(${color[0]},${color[1]},${color[2]},0.05)`);
+      g1.addColorStop(1, `rgba(${color[0]},${color[1]},${color[2]},0)`);
+      ctx.fillStyle = g1;
+      ctx.beginPath();
+      ctx.arc(tx, ty, glowSize, 0, Math.PI * 2);
       ctx.fill();
+
+      // White hot center
+      const coreSize = (8 + speed * 200) * devicePixelRatio;
+      const g2 = ctx.createRadialGradient(tx, ty, 0, tx, ty, coreSize);
+      g2.addColorStop(0, `rgba(255,255,255,0.95)`);
+      g2.addColorStop(0.5, `rgba(${color[0]},${color[1]},${color[2]},0.7)`);
+      g2.addColorStop(1, `rgba(${color[0]},${color[1]},${color[2]},0)`);
+      ctx.fillStyle = g2;
+      ctx.beginPath();
+      ctx.arc(tx, ty, coreSize, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // --- Trail (light streak following finger movement) ---
+      if (trails[key].length > 2) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        for (let i = 0; i < trails[key].length - 1; i++) {
+          const t1 = trails[key][i];
+          const t2 = trails[key][i + 1];
+          const alpha = (1 - i / trails[key].length) * 0.4;
+          const width = (1 - i / trails[key].length) * 8 * devicePixelRatio;
+          ctx.strokeStyle = `rgba(${color[0]},${color[1]},${color[2]},${alpha})`;
+          ctx.lineWidth = width;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(t1.x, t1.y);
+          ctx.lineTo(t2.x, t2.y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
     }
-  }
 
-  // --- Finger glow orbs ---
-  for (const ft of fingerTips) {
-    const fx = ft.x * W;
-    const fy = ft.y * H;
-    const intensity = 0.3 + ft.speed * 10;
-    const r = (30 + ft.speed * 300) * devicePixelRatio * br;
+    // --- Connect fingers with light web (between adjacent fingertips) ---
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    for (let fi = 0; fi < tipIdx.length - 1; fi++) {
+      const t1 = hand[tipIdx[fi]];
+      const t2 = hand[tipIdx[fi + 1]];
+      const x1 = (1 - t1.x) * W, y1 = t1.y * H;
+      const x2 = (1 - t2.x) * W, y2 = t2.y * H;
+      const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
 
-    // Big glow
-    const fg = ctx.createRadialGradient(fx, fy, 0, fx, fy, r);
-    fg.addColorStop(0, `rgba(${p.accent[0]},${p.accent[1]},${p.accent[2]},${Math.min(intensity, 0.6)})`);
-    fg.addColorStop(0.3, `rgba(${p.primary[0]},${p.primary[1]},${p.primary[2]},${intensity * 0.3})`);
-    fg.addColorStop(1, `rgba(${p.primary[0]},${p.primary[1]},${p.primary[2]},0)`);
-    ctx.fillStyle = fg;
+      // Only connect if fingers are relatively close
+      if (dist < W * 0.25) {
+        const c1 = colors[fi], c2 = colors[fi + 1];
+        const alpha = Math.max(0, 0.2 - dist / W);
+
+        const lg = ctx.createLinearGradient(x1, y1, x2, y2);
+        lg.addColorStop(0, `rgba(${c1[0]},${c1[1]},${c1[2]},${alpha})`);
+        lg.addColorStop(0.5, `rgba(255,255,255,${alpha * 0.5})`);
+        lg.addColorStop(1, `rgba(${c2[0]},${c2[1]},${c2[2]},${alpha})`);
+        ctx.strokeStyle = lg;
+        ctx.lineWidth = 3 * devicePixelRatio;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
+    }
+
+    // Connect thumb to index with special arc
+    const thumb = hand[tipIdx[0]];
+    const index = hand[tipIdx[1]];
+    const thx = (1 - thumb.x) * W, thy = thumb.y * H;
+    const inx = (1 - index.x) * W, iny = index.y * H;
+    const tiDist = Math.sqrt((thx - inx) ** 2 + (thy - iny) ** 2);
+    if (tiDist < W * 0.2) {
+      const arcAlpha = Math.max(0, 0.25 - tiDist / W);
+      const ag = ctx.createLinearGradient(thx, thy, inx, iny);
+      ag.addColorStop(0, `rgba(${colors[0][0]},${colors[0][1]},${colors[0][2]},${arcAlpha})`);
+      ag.addColorStop(1, `rgba(${colors[1][0]},${colors[1][1]},${colors[1][2]},${arcAlpha})`);
+      ctx.strokeStyle = ag;
+      ctx.lineWidth = 5 * devicePixelRatio;
+      ctx.beginPath();
+      const cpx = (thx + inx) / 2, cpy = (thy + iny) / 2 - tiDist * 0.3;
+      ctx.moveTo(thx, thy);
+      ctx.quadraticCurveTo(cpx, cpy, inx, iny);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // --- Palm glow ---
+    const palmCenter = hand[9]; // middle MCP
+    const pcx = (1 - palmCenter.x) * W;
+    const pcy = palmCenter.y * H;
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    const palmR = 80 * devicePixelRatio;
+    const pg = ctx.createRadialGradient(pcx, pcy, 0, pcx, pcy, palmR);
+    pg.addColorStop(0, `rgba(180,150,255,0.12)`);
+    pg.addColorStop(1, `rgba(180,150,255,0)`);
+    ctx.fillStyle = pg;
     ctx.beginPath();
-    ctx.arc(fx, fy, r, 0, Math.PI * 2);
+    ctx.arc(pcx, pcy, palmR, 0, Math.PI * 2);
     ctx.fill();
-
-    // Bright core
-    const cr2 = 6 * devicePixelRatio;
-    ctx.fillStyle = `rgba(255,255,255,${Math.min(intensity * 0.8, 0.9)})`;
-    ctx.beginPath();
-    ctx.arc(fx, fy, cr2, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.restore();
   }
-
-  // --- Light rays from orb ---
-  ctx.save();
-  ctx.globalCompositeOperation = 'screen';
-  for (let i = 0; i < 6; i++) {
-    const angle = time * 0.15 + i * Math.PI / 3;
-    const len = Math.min(W, H) * (0.3 + Math.sin(time * 0.5 + i) * 0.1);
-    const ex = orbX + Math.cos(angle) * len;
-    const ey = orbY + Math.sin(angle) * len;
-
-    const rg = ctx.createLinearGradient(orbX, orbY, ex, ey);
-    rg.addColorStop(0, `rgba(${p.orb[0]},${p.orb[1]},${p.orb[2]},${0.08 * br})`);
-    rg.addColorStop(1, `rgba(${p.orb[0]},${p.orb[1]},${p.orb[2]},0)`);
-    ctx.strokeStyle = rg;
-    ctx.lineWidth = 3 * devicePixelRatio;
-    ctx.beginPath();
-    ctx.moveTo(orbX, orbY);
-    ctx.lineTo(ex, ey);
-    ctx.stroke();
-  }
-  ctx.restore();
 
   requestAnimationFrame(draw);
 }
@@ -451,7 +321,6 @@ async function init() {
   cam.start();
 
   document.getElementById('start-screen').classList.add('hidden');
-  document.getElementById('controls').classList.remove('hidden');
   draw();
 }
 
@@ -465,55 +334,6 @@ document.getElementById('start-btn').addEventListener('click', () => {
     console.error('Init error:', err);
   });
 });
-
-// Controls
-document.getElementById('bright').addEventListener('input', e => {
-  brightness = parseInt(e.target.value) / 100;
-  document.getElementById('bright-val').textContent = parseInt(e.target.value) + '%';
-});
-document.getElementById('density').addEventListener('input', e => {
-  densityMul = parseInt(e.target.value) / 100;
-  document.getElementById('density-val').textContent = parseInt(e.target.value) + '%';
-});
-document.getElementById('wave').addEventListener('input', e => {
-  waveMul = parseInt(e.target.value) / 100;
-  document.getElementById('wave-val').textContent = parseInt(e.target.value) + '%';
-});
-document.getElementById('speed').addEventListener('input', e => {
-  speedMul = parseFloat(e.target.value);
-  document.getElementById('speed-val').textContent = speedMul.toFixed(1) + 'x';
-});
-
-document.querySelectorAll('.preset-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentPreset = btn.dataset.preset;
-  });
-});
-
-const controls = document.getElementById('controls');
-const toggleBtn = document.getElementById('toggle-btn');
-document.addEventListener('keydown', e => {
-  if (e.key === 'h' || e.key === 'H') {
-    controls.classList.toggle('hidden');
-    toggleBtn.style.display = controls.classList.contains('hidden') ? 'flex' : 'none';
-  }
-  if (e.key === 'f' || e.key === 'F') {
-    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-    else document.exitFullscreen();
-  }
-  if (e.key === ' ') { e.preventDefault(); paused = !paused; }
-  const presetNames = Object.keys(presets);
-  const idx = parseInt(e.key) - 1;
-  if (idx >= 0 && idx < presetNames.length) {
-    currentPreset = presetNames[idx];
-    document.querySelectorAll('.preset-btn').forEach(b =>
-      b.classList.toggle('active', b.dataset.preset === currentPreset));
-  }
-});
-toggleBtn.addEventListener('click', () => { controls.classList.remove('hidden'); toggleBtn.style.display = 'none'; });
-document.addEventListener('wheel', e => e.preventDefault(), { passive: false });
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
 </script>
